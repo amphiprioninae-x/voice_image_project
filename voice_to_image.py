@@ -21,8 +21,9 @@ BLUE = (0, 0, 255)
 
 # Audio settings
 sample_rate = 44100  # Hz
-block_size = 1024    # Buffer size
+block_size = 2048    # Increased buffer size to prevent overflow
 channels = 1         # Mono
+device = 2          # Using Realtek Audio microphone (you can change this number based on available devices)
 
 # Initial dot position (center of screen)
 dot_x, dot_y = WIDTH // 2, HEIGHT // 2
@@ -37,33 +38,48 @@ def audio_callback(indata, frames, time, status):
     
     if status:
         print(f"Status: {status}")
-        
+    
+    # Print audio data stats occasionally
+    if np.random.random() < 0.01:  # Print roughly every 100th frame
+        print(f"Audio input stats - Max: {np.max(indata):.3f}, Mean: {np.mean(indata):.3f}, Min: {np.min(indata):.3f}")
     # Calculate volume (root mean square of audio samples)
     volume = np.sqrt(np.mean(indata**2))
     
-    # Scale volume (adjust these values as needed)
-    volume_normalized = min(1.0, volume * 5)  # Scale factor may need adjustment
+    # Scale volume with higher sensitivity (increased from 5 to 20)
+    volume_normalized = min(1.0, volume * 20)  # Increased scale factor for more sensitivity
     
     # Update dot position based on volume
     # Make the dot move in a circular pattern with radius proportional to volume
-    angle = time.currentTime * 2  # Rotation speed
+    angle = time.currentTime * 3  # Increased rotation speed
     radius = volume_normalized * (min(WIDTH, HEIGHT) // 3)
     
-    # Calculate new position
+    # Calculate new position with larger movement range
+    radius = radius * 1.5  # Increase the movement radius by 50%
     target_x = WIDTH // 2 + math.cos(angle) * radius
     target_y = HEIGHT // 2 + math.sin(angle) * radius
     
-    # Smooth movement (lerp)
-    dot_x = dot_x * 0.9 + target_x * 0.1
-    dot_y = dot_y * 0.9 + target_y * 0.1
+    # Faster movement response (adjusted lerp values)
+    dot_x = dot_x * 0.7 + target_x * 0.3  # More responsive horizontal movement
+    dot_y = dot_y * 0.7 + target_y * 0.3  # More responsive vertical movement
     
-    # Update dot size based on volume
-    dot_radius = 10 + int(volume_normalized * 40)
+    # Update dot size based on volume with more dramatic changes
+    dot_radius = 10 + int(volume_normalized * 80)  # Doubled the size range
 
 def main():
+    # Print available audio devices
+    print("\nAvailable audio devices:")
+    print(sd.query_devices())
+    
+    # Get default input device
+    device_info = sd.query_devices(kind='input')
+    print("\nDefault input device:")
+    print(device_info)
+    
     # Start audio stream
     try:
+        print("\nAttempting to open audio stream...")
         with sd.InputStream(callback=audio_callback, 
+                           device=device,
                            channels=channels,
                            samplerate=sample_rate,
                            blocksize=block_size):
